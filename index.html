@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tactical Shooter - FPS Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* HUD Overlay */
+        #hud {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+        }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            border: 2px solid rgba(0, 255, 0, 0.8);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 255, 0, 0.1), transparent);
+        }
+
+        #crosshair::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 4px;
+            background: #0f0;
+            border-radius: 50%;
+        }
+
+        /* Health Bar */
+        #health-container {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 200px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border: 2px solid #0f0;
+            border-radius: 5px;
+        }
+
+        #health-label {
+            color: #0f0;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        #health-bar {
+            width: 100%;
+            height: 25px;
+            background: #1a1a1a;
+            border: 1px solid #0f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        #health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+            width: 100%;
+            transition: width 0.2s ease;
+        }
+
+        #health-text {
+            color: #0f0;
+            font-size: 12px;
+            margin-top: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Ammo Counter */
+        #ammo-container {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            color: #0f0;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: right;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border: 2px solid #0f0;
+            border-radius: 5px;
+        }
+
+        /* Kill Counter */
+        #kills-container {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            color: #0f0;
+            font-size: 16px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border: 2px solid #0f0;
+            border-radius: 5px;
+        }
+
+        /* Messages */
+        #messages {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #ff0000;
+            font-size: 32px;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Instructions */
+        #instructions {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            color: #0f0;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border: 1px solid #0f0;
+            border-radius: 5px;
+            max-width: 300px;
+            line-height: 1.6;
+        }
+
+        #instructions p {
+            margin: 5px 0;
+        }
+
+        /* Game Over Screen */
+        #game-over-screen {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        #game-over-screen.show {
+            display: flex;
+        }
+
+        #game-over-text {
+            color: #ff0000;
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+
+        #game-over-stats {
+            color: #0f0;
+            font-size: 20px;
+            margin-bottom: 30px;
+        }
+
+        #restart-button {
+            padding: 15px 40px;
+            font-size: 18px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        #restart-button:hover {
+            background: #00cc00;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <!-- HUD Container -->
+    <div id="hud">
+        <!-- Instructions -->
+        <div id="instructions">
+            <p><strong>TACTICAL SHOOTER</strong></p>
+            <p>W/A/S/D - Move</p>
+            <p>Mouse - Look Around</p>
+            <p>Click - Shoot (25 DMG)</p>
+            <p>Click - Lock Mouse</p>
+        </div>
+
+        <!-- Crosshair -->
+        <div id="crosshair"></div>
+
+        <!-- Kill Counter -->
+        <div id="kills-container">
+            <div>KILLS: <span id="kill-count">0</span></div>
+        </div>
+
+        <!-- Health -->
+        <div id="health-container">
+            <div id="health-label">HEALTH</div>
+            <div id="health-bar">
+                <div id="health-fill"></div>
+            </div>
+            <div id="health-text"><span id="health-value">100</span> / 100</div>
+        </div>
+
+        <!-- Ammo -->
+        <div id="ammo-container">
+            <div>AMMO: <span id="ammo-value">∞</span></div>
+        </div>
+
+        <!-- Messages -->
+        <div id="messages"></div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen">
+        <div id="game-over-text" style="color: #0f0;">MISSION COMPLETE</div>
+        <div id="game-over-stats">
+            <p>Enemies Eliminated: <span id="final-kills">0</span></p>
+            <p>Final Health: <span id="final-health">0</span> / 100</p>
+        </div>
+        <button id="restart-button">RESTART GAME</button>
+    </div>
+
+    <!-- Three.js and PointerLockControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/examples/js/controls/PointerLockControls.js"></script>
+
+    <script>
+        // ============================================
+        // GAME STATE & CONSTANTS
+        // ============================================
+        const GAME_CONFIG = {
+            playerHealth: 100,
+            playerMaxHealth: 100,
+            botHealth: 100,
+            botMaxHealth: 100,
+            damagePerShot: 25,
+            moveSpeed: 0.15,
+            sensitivity: 0.003,
+            fovAngle: 75,
+            botCount: 3,
+            botSpeed: 0.05,
+            botViewDistance: 300
+        };
+
+        // Game state
+        let gameState = {
+            playerHealth: GAME_CONFIG.playerMaxHealth,
+            kills: 0,
+            gameOver: false,
+            bots: [],
+            scene: null,
+            camera: null,
+            renderer: null,
+            controls: null,
+            raycaster: new THREE.Raycaster(),
+            keys: {},
+            gunMesh: null,
+            lastShotTime: 0,
+            shotCooldown: 100 // ms
+        };
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        function initScene() {
+            // Scene setup
+            gameState.scene = new THREE.Scene();
+            gameState.scene.background = new THREE.Color(0x87ceeb); // Sky blue
+            gameState.scene.fog = new THREE.Fog(0x87ceeb, 1000, 10);
+
+            // Camera setup
+            gameState.camera = new THREE.PerspectiveCamera(
+                GAME_CONFIG.fovAngle,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                2000
+            );
+            gameState.camera.position.set(0, 5, 10);
+
+            // Renderer setup
+            gameState.renderer = new THREE.WebGLRenderer({ antialias: true });
+            gameState.renderer.setSize(window.innerWidth, window.innerHeight);
+            gameState.renderer.shadowMap.enabled = true;
+            gameState.renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+            document.body.appendChild(gameState.renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            gameState.scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(100, 150, 50);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.left = -300;
+            directionalLight.shadow.camera.right = 300;
+            directionalLight.shadow.camera.top = 300;
+            directionalLight.shadow.camera.bottom = -300;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 500;
+            gameState.scene.add(directionalLight);
+
+            // Build map
+            buildMap();
+
+            // Create gun model
+            createGun();
+
+            // Spawn enemies
+            spawnBots();
+
+            // Setup controls
+            gameState.controls = new PointerLockControls(gameState.camera, document.body);
+            gameState.scene.add(gameState.controls.getObject());
+
+            // Lock pointer on click
+            document.addEventListener('click', () => {
+                gameState.controls.lock();
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                if (document.pointerLockElement === document.body) {
+                    setupInputListeners();
+                } else {
+                    removeInputListeners();
+                }
+            });
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Start game loop
+            animate();
+        }
+
+        // ============================================
+        // MAP BUILDING
+        // ============================================
+        function buildMap() {
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(400, 400);
+            const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x8b7765 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            gameState.scene.add(ground);
+
+            // Sky box walls (simplified boundaries)
+            const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x999999 });
+            const wallGeometry = new THREE.BoxGeometry(400, 100, 10);
+
+            // Back wall
+            const backWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            backWall.position.set(0, 50, -200);
+            backWall.castShadow = true;
+            backWall.receiveShadow = true;
+            gameState.scene.add(backWall);
+
+            // Front wall
+            const frontWall = new THREE.Mesh(wallGeometry, wallMaterial);
+            frontWall.position.set(0, 50, 200);
+            frontWall.castShadow = true;
+            frontWall.receiveShadow = true;
+            gameState.scene.add(frontWall);
+
+            // Left wall
+            const leftWallGeometry = new THREE.BoxGeometry(10, 100, 400);
+            const leftWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+            leftWall.position.set(-200, 50, 0);
+            leftWall.castShadow = true;
+            leftWall.receiveShadow = true;
+            gameState.scene.add(leftWall);
+
+            // Right wall
+            const rightWall = new THREE.Mesh(leftWallGeometry, wallMaterial);
+            rightWall.position.set(200, 50, 0);
+            rightWall.castShadow = true;
+            rightWall.receiveShadow = true;
+            gameState.scene.add(rightWall);
+
+            // A-SITE AREA (inspired by Dust II)
+            // A-site boxes
+            const crateGeometry = new THREE.BoxGeometry(30, 30, 30);
+            const crateMaterial = new THREE.MeshLambertMaterial({ color: 0xcd853f });
+
+            const crate1 = new THREE.Mesh(crateGeometry, crateMaterial);
+            crate1.position.set(-60, 15, -120);
+            crate1.castShadow = true;
+            crate1.receiveShadow = true;
+            gameState.scene.add(crate1);
+
+            const crate2 = new THREE.Mesh(crateGeometry, crateMaterial);
+            crate2.position.set(60, 15, -120);
+            crate2.castShadow = true;
+            crate2.receiveShadow = true;
+            gameState.scene.add(crate2);
+
+            const crate3 = new THREE.Mesh(crateGeometry, crateMaterial);
+            crate3.position.set(0, 15, -150);
+            crate3.castShadow = true;
+            crate3.receiveShadow = true;
+            gameState.scene.add(crate3);
+
+            // Central corridor walls
+            const corridorWallGeometry = new THREE.BoxGeometry(80, 80, 10);
+            const corridorWallMaterial = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
+
+            const corridorWall1 = new THREE.Mesh(corridorWallGeometry, corridorWallMaterial);
+            corridorWall1.position.set(-80, 40, 0);
+            corridorWall1.castShadow = true;
+            corridorWall1.receiveShadow = true;
+            gameState.scene.add(corridorWall1);
+
+            const corridorWall2 = new THREE.Mesh(corridorWallGeometry, corridorWallMaterial);
+            corridorWall2.position.set(80, 40, 0);
+            corridorWall2.castShadow = true;
+            corridorWall2.receiveShadow = true;
+            gameState.scene.add(corridorWall2);
+
+            // B-SITE AREA
+            const bSiteCrateGeometry = new THREE.BoxGeometry(40, 40, 40);
+            const crate4 = new THREE.Mesh(bSiteCrateGeometry, crateMaterial);
+            crate4.position.set(-100, 20, 100);
+            crate4.castShadow = true;
+            crate4.receiveShadow = true;
+            gameState.scene.add(crate4);
+
+            const crate5 = new THREE.Mesh(bSiteCrateGeometry, crateMaterial);
+            crate5.position.set(100, 20, 100);
+            crate5.castShadow = true;
+            crate5.receiveShadow = true;
+            gameState.scene.add(crate5);
+
+            // Pillar in the middle
+            const pillarGeometry = new THREE.CylinderGeometry(15, 15, 80, 8);
+            const pillarMaterial = new THREE.MeshLambertMaterial({ color: 0x888888 });
+            const pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+            pillar.position.set(0, 40, 0);
+            pillar.castShadow = true;
+            pillar.receiveShadow = true;
+            gameState.scene.add(pillar);
+        }
+
+        // ============================================
+        // GUN MODEL
+        // ============================================
+        function createGun() {
+            const gunGroup = new THREE.Group();
+
+            // Gun barrel
+            const barrelGeometry = new THREE.BoxGeometry(2, 2, 15);
+            const gunMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 });
+            const barrel = new THREE.Mesh(barrelGeometry, gunMaterial);
+            barrel.position.set(0, 0, -8);
+            gunGroup.add(barrel);
+
+            // Gun grip
+            const gripGeometry = new THREE.BoxGeometry(2, 8, 4);
+            const grip = new THREE.Mesh(gripGeometry, gunMaterial);
+            grip.position.set(0, -4, -2);
+            gunGroup.add(grip);
+
+            // Gun magazine
+            const magGeometry = new THREE.BoxGeometry(1, 6, 3);
+            const magMaterial = new THREE.MeshLambertMaterial({ color: 0x111111 });
+            const magazine = new THREE.Mesh(magGeometry, magMaterial);
+            magazine.position.set(0.2, -5, -2);
+            gunGroup.add(magazine);
+
+            // Position gun in lower right of view
+            gunGroup.position.set(3, -2, -5);
+            gameState.camera.add(gunGroup);
+            gameState.gunMesh = gunGroup;
+        }
+
+        // ============================================
+        // BOT SPAWNING
+        // ============================================
+        function spawnBots() {
+            const spawnPositions = [
+                { x: -80, y: 5, z: -150 },
+                { x: 0, y: 5, z: -180 },
+                { x: 80, y: 5, z: -120 }
+            ];
+
+            for (let i = 0; i < GAME_CONFIG.botCount; i++) {
+                const bot = createBot(spawnPositions[i]);
+                gameState.bots.push(bot);
+            }
+        }
+
+        function createBot(position) {
+            // Bot body (capsule-like shape using cylinder + spheres)
+            const bodyGeometry = new THREE.CapsuleGeometry(2, 8, 4, 8);
+            const botMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+            const botMesh = new THREE.Mesh(bodyGeometry, botMaterial);
+            botMesh.position.set(position.x, position.y, position.z);
+            botMesh.castShadow = true;
+            botMesh.receiveShadow = true;
+            gameState.scene.add(botMesh);
+
+            // Bot head (simple sphere)
+            const headGeometry = new THREE.SphereGeometry(2, 8, 8);
+            const headMesh = new THREE.Mesh(headGeometry, botMaterial);
+            headMesh.position.set(position.x, position.y + 7, position.z);
+            headMesh.castShadow = true;
+            headMesh.receiveShadow = true;
+            gameState.scene.add(headMesh);
+
+            return {
+                mesh: botMesh,
+                headMesh: headMesh,
+                health: GAME_CONFIG.botMaxHealth,
+                position: { x: position.x, y: position.y, z: position.z },
+                direction: 1, // 1 for forward, -1 for backward
+                patrolRange: 100,
+                alive: true,
+                lastHitTime: 0,
+                originalColor: 0xff0000
+            };
+        }
+
+        // ============================================
+        // INPUT HANDLING
+        // ============================================
+        function setupInputListeners() {
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            document.addEventListener('click', onMouseClick);
+        }
+
+        function removeInputListeners() {
+            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('keyup', onKeyUp);
+            document.removeEventListener('click', onMouseClick);
+        }
+
+        function onKeyDown(event) {
+            gameState.keys[event.key.toLowerCase()] = true;
+        }
+
+        function onKeyUp(event) {
+            gameState.keys[event.key.toLowerCase()] = false;
+        }
+
+        function onMouseClick(event) {
+            if (!document.pointerLockElement || gameState.gameOver) return;
+            shoot();
+        }
+
+        // ============================================
+        // SHOOTING MECHANICS
+        // ============================================
+        function shoot() {
+            const now = Date.now();
+            if (now - gameState.lastShotTime < gameState.shotCooldown) return;
+            gameState.lastShotTime = now;
+
+            // Raycasting from camera center
+            gameState.raycaster.setFromCamera({ x: 0, y: 0 }, gameState.camera);
+
+            // Check intersections with bot meshes
+            const botsToCheck = gameState.bots
+                .filter(bot => bot.alive)
+                .map(bot => [bot.mesh, bot.headMesh])
+                .flat();
+
+            const intersects = gameState.raycaster.intersectObjects(botsToCheck);
+
+            if (intersects.length > 0) {
+                // Find which bot was hit
+                const hitObject = intersects[0].object;
+                const hitBot = gameState.bots.find(
+                    bot => bot.mesh === hitObject || bot.headMesh === hitObject
+                );
+
+                if (hitBot && hitBot.alive) {
+                    hitBot.health -= GAME_CONFIG.damagePerShot;
+                    hitBot.lastHitTime = Date.now();
+
+                    // Flash effect
+                    const originalColor = hitBot.mesh.material.color.getHex();
+                    hitBot.mesh.material.color.setHex(0xffffff);
+                    hitBot.headMesh.material.color.setHex(0xffffff);
+
+                    setTimeout(() => {
+                        if (hitBot.alive) {
+                            hitBot.mesh.material.color.setHex(0xff0000);
+                            hitBot.headMesh.material.color.setHex(0xff0000);
+                        }
+                    }, 50);
+
+                    // Check if bot is dead
+                    if (hitBot.health <= 0) {
+                        killBot(hitBot);
+                    }
+                }
+            }
+        }
+
+        function killBot(bot) {
+            bot.alive = false;
+            gameState.kills++;
+
+            // Remove from scene with animation
+            const removalTime = 500;
+            const startTime = Date.now();
+
+            const removeInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / removalTime;
+
+                if (progress >= 1) {
+                    gameState.scene.remove(bot.mesh);
+                    gameState.scene.remove(bot.headMesh);
+                    clearInterval(removeInterval);
+                } else {
+                    bot.mesh.material.opacity = 1 - progress;
+                    bot.headMesh.material.opacity = 1 - progress;
+                    bot.mesh.position.y -= 0.05;
+                    bot.headMesh.position.y -= 0.05;
+                }
+            }, 16);
+
+            // Update UI
+            updateKillCounter();
+
+            // Check win condition
+            if (gameState.kills >= GAME_CONFIG.botCount) {
+                gameState.gameOver = true;
+                showGameOver();
+            }
+        }
+
+        // ============================================
+        // PLAYER MOVEMENT
+        // ============================================
+        function updatePlayerMovement() {
+            const direction = new THREE.Vector3();
+
+            if (gameState.keys['w']) direction.z -= 1;
+            if (gameState.keys['s']) direction.z += 1;
+            if (gameState.keys['a']) direction.x -= 1;
+            if (gameState.keys['d']) direction.x += 1;
+
+            if (direction.length() > 0) {
+                direction.normalize();
+                const moveVector = direction.multiplyScalar(GAME_CONFIG.moveSpeed);
+                gameState.controls.moveRight(moveVector.x);
+                gameState.controls.moveForward(-moveVector.z);
+            }
+        }
+
+        // ============================================
+        // BOT AI
+        // ============================================
+        function updateBotAI() {
+            gameState.bots.forEach(bot => {
+                if (!bot.alive) return;
+
+                // Simple patrol logic
+                bot.position.z += bot.direction * GAME_CONFIG.botSpeed;
+
+                // Check if bot reached patrol boundary
+                if (Math.abs(bot.position.z - bot.position.z) > bot.patrolRange) {
+                    bot.direction *= -1;
+                }
+
+                // Update mesh positions
+                bot.mesh.position.z = bot.position.z;
+                bot.headMesh.position.z = bot.position.z;
+
+                // Check distance to player
+                const playerPos = gameState.controls.getObject().position;
+                const distance = new THREE.Vector3(
+                    bot.mesh.position.x - playerPos.x,
+                    0,
+                    bot.mesh.position.z - playerPos.z
+                ).length();
+
+                if (distance < GAME_CONFIG.botViewDistance) {
+                    // Bot "sees" player - could implement AI here
+                    // For now, bots just patrol
+                }
+            });
+        }
+
+        // ============================================
+        // HUD UPDATES
+        // ============================================
+        function updateHealthDisplay() {
+            const healthPercent = (gameState.playerHealth / GAME_CONFIG.playerMaxHealth) * 100;
+            document.getElementById('health-fill').style.width = healthPercent + '%';
+            document.getElementById('health-value').textContent = Math.max(0, gameState.playerHealth);
+
+            if (gameState.playerHealth <= 0) {
+                gameState.gameOver = true;
+                showGameOver();
+            }
+        }
+
+        function updateKillCounter() {
+            document.getElementById('kill-count').textContent = gameState.kills;
+        }
+
+        function showMessage(text, duration = 2000) {
+            const messageEl = document.getElementById('messages');
+            messageEl.textContent = text;
+            messageEl.style.animation = 'none';
+            setTimeout(() => {
+                messageEl.style.animation = 'fadeInOut 0.5s ease-in-out';
+            }, 10);
+        }
+
+        function showGameOver() {
+            const gameOverScreen = document.getElementById('game-over-screen');
+            document.getElementById('final-kills').textContent = gameState.kills;
+            document.getElementById('final-health').textContent = Math.max(0, gameState.playerHealth);
+
+            if (gameState.kills >= GAME_CONFIG.botCount) {
+                document.getElementById('game-over-text').textContent = 'MISSION COMPLETE';
+                document.getElementById('game-over-text').style.color = '#0f0';
+            } else {
+                document.getElementById('game-over-text').textContent = 'MISSION FAILED';
+                document.getElementById('game-over-text').style.color = '#ff0000';
+            }
+
+            gameOverScreen.classList.add('show');
+            gameState.controls.unlock();
+        }
+
+        // ============================================
+        // ANIMATION LOOP
+        // ============================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!gameState.gameOver) {
+                updatePlayerMovement();
+                updateBotAI();
+                updateHealthDisplay();
+            }
+
+            gameState.renderer.render(gameState.scene, gameState.camera);
+        }
+
+        function onWindowResize() {
+            gameState.camera.aspect = window.innerWidth / window.innerHeight;
+            gameState.camera.updateProjectionMatrix();
+            gameState.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ============================================
+        // GAME RESTART
+        // ============================================
+        document.getElementById('restart-button').addEventListener('click', () => {
+            location.reload();
+        });
+
+        // ============================================
+        // Add fade animation
+        // ============================================
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeInOut {
+                0% { opacity: 1; }
+                100% { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // ============================================
+        // START GAME
+        // ============================================
+        window.addEventListener('load', initScene);
+    </script>
+</body>
+</html>
